@@ -1,0 +1,17 @@
+{
+  "deno.lint": true,
+  "deno.unstable": true,
+  "deno.enable": true,
+  "deno.suggest.autoImports": false,
+  "deno.suggest.names": false,
+  "deno.suggest.paths": false,
+  "deno.codeLens.implementations": true,
+  "editor.defaultFormatter": "denoland.vscode-deno",
+  "deno.suggest.imports.hosts": {
+    "https://deno.land": false,
+    "https://cdn.skypack.dev": false
+  },
+  "typescript.format.enable": false,
+  "javascript.format.enable": false,
+  "editor.formatOnSave": true
+}
