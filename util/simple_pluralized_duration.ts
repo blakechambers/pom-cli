@@ -7,10 +7,12 @@ function fixedWhenNeeded(num: number, places: number) {
 }
 
 function simplePuralizedDuration(num: number, text: string) {
-  if (num === 1) {
-    return `${fixedWhenNeeded(num, 2)} ${singular(text)}`;
+  const fixed = fixedWhenNeeded(num, 2);
+
+  if (fixed === 1) {
+    return `${fixed} ${singular(text)}`;
   } else {
-    return `${fixedWhenNeeded(num, 2)} ${plural(text)}`;
+    return `${fixed} ${plural(text)}`;
   }
 }
 

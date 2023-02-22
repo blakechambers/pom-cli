@@ -4,7 +4,7 @@ export {
   main,
   subTasksFromDir,
   Task,
-} from "../hort-cli/mod.ts";
+} from "../_cabinet/hort-cli/mod.ts";
 
 export { ringBell } from "../random/bell.ts";
 

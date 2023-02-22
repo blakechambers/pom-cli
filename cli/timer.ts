@@ -28,7 +28,6 @@ async function timer(
   const startingTime = new Date();
   const endingTime = new Date(startingTime.getTime() + durationInMilliseconds);
   const allowOvertime = alarm;
-  const conditionallyRingBell = thingOnCadence(endingTime, ringBell);
 
   const bar = new ProgressBar(startingTime, endingTime, allowOvertime);
 
@@ -57,6 +56,8 @@ ${focus}
 
     Deno.exit();
   });
+
+  const conditionallyRingBell = thingOnCadence(endingTime, ringBell);
 
   await lineWriter(async (writer) => {
     for await (const entry of bar.eachDisplayWindow()) {
@@ -206,7 +207,7 @@ class ProgressBar {
 }
 
 const task = buildTask(timer, (t) => {
-  t.desc = "Cli timer to ";
+  t.desc = "start a simple timer";
 
   t.addOption("duration", (o) => {
     o.desc =
