@@ -20,4 +20,12 @@ function thingOnCadence(endTime: Date, func: AsyncCBProc): () => void {
   };
 }
 
-export { thingOnCadence };
+async function writer(text: string) {
+  await Deno.write(Deno.stdout.rid, new TextEncoder().encode(`\r${text}`));
+}
+
+async function ringBell() {
+  await writer("\x07");
+}
+
+export { ringBell, thingOnCadence };
