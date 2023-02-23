@@ -4,7 +4,7 @@ export {
   main,
   subTasksFromDir,
   Task,
-} from "../_cabinet/hort-cli/mod.ts";
+} from "https://deno.land/x/hort_cli@v0.1.0-alpha.4/mod.ts";
 
 export { ringBell } from "../random/bell.ts";
 
