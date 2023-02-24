@@ -32,8 +32,6 @@ async function timer(
     alarm,
   } = config;
 
-  console.log("[CONFIG]", config);
-
   const durationInMilliseconds = durationStringToMilliseconds(duration);
 
   const startingTime = new Date();
