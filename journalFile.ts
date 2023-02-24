@@ -1,4 +1,7 @@
-import { ensureFile, resolve } from "./deps.ts";
+import { DateTime, ensureFile, Interval, resolve } from "./deps.ts";
+import { Config } from "./util/config.ts";
+
+import * as eta from "https://cdn.skypack.dev/eta?dts";
 
 interface JournalEntry {
   goal: string;
@@ -8,29 +11,90 @@ interface JournalEntry {
   endingTimeActual: Date;
 }
 
-async function writeToJournalFile(journalDir: string, data: JournalEntry) {
+// tokens are documented here: https://moment.github.io/luxon/docs/manual/formatting.html#table-of-tokens
+function formatDateUsingLuxonDateTimeTokens(date: Date, format: string) {
+  return DateTime.fromJSDate(date).toFormat(format);
+}
+
+async function renderJsonJournalFile(journalPath: string, data: JournalEntry) {
+  return await Deno.writeTextFile(
+    journalPath,
+    JSON.stringify(data, null, 2),
+  );
+}
+
+async function renderTemplateJournalFile(
+  journalPath: string,
+  config: Config,
+  data: JournalEntry,
+) {
+  if (
+    !config.templatingEnabled ||
+    // TODO: these is because the config is not set to be either jounaled
+    //       or not.  Better type checking can solve this.
+    !config.journalTemplateFile
+  ) throw new Error("Journaling is not enabled");
+
+  // read template file
+  const myTemplate = await Deno.readTextFile(config.journalTemplateFile);
+
+  // calculate interval
+  const interval = Interval.fromDateTimes(
+    DateTime.fromJSDate(data.startingTime),
+    DateTime.fromJSDate(data.endingTimeActual),
+  );
+
+  // render template
+  const result = eta.render(myTemplate, {
+    ...data,
+    interval,
+    floor: Math.floor,
+    formatDateUsingLuxonDateTimeTokens,
+  }, { autoTrim: false });
+
+  return await Deno.writeTextFile(journalPath, result);
+}
+
+async function writeToJournalFile(
+  config: Config,
+  data: JournalEntry,
+): Promise<void> {
   const { startingTime } = data;
 
-  const formattedDateFragment = [
-    startingTime.getFullYear(),
-    (startingTime.getMonth() + 1).toString().padStart(2, "0"),
-    startingTime.getDate().toString().padStart(2, "0"),
-  ].join(".");
+  if (
+    // TODO: these is because the config is not set to be either jounaled
+    //       or not.  Better type checking can solve this.
+    !config.journalFile ||
+    !config.journalDir
+  ) throw new Error("Journaling is not enabled");
 
-  const formattedTimeFragment = [
-    startingTime.getHours().toString().padStart(2, "0"),
-    startingTime.getMinutes().toString().padStart(2, "0"),
-    startingTime.getSeconds().toString().padStart(2, "0"),
-  ].join(".");
+  const formattedFilePath = formatDateUsingLuxonDateTimeTokens(
+    startingTime,
+    config.journalFile,
+  );
 
   const journalPath = resolve(
-    journalDir,
-    formattedDateFragment,
-    `pom.${formattedTimeFragment}.json`,
+    config.journalDir,
+    formattedFilePath,
   );
 
   await ensureFile(journalPath); // using this just to make sure the file folders and things are all present
-  await Deno.writeTextFile(journalPath, JSON.stringify(data, null, 2));
+
+  switch (config.journalFormat) {
+    case "json":
+      return await renderJsonJournalFile(
+        journalPath,
+        data,
+      );
+    case "template":
+      return await renderTemplateJournalFile(
+        journalPath,
+        config,
+        data,
+      );
+    default:
+      throw new Error(`Invalid journalFormat: ${config.journalFormat}`);
+  }
 }
 
 export { writeToJournalFile };

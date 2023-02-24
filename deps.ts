@@ -17,4 +17,6 @@ export {
   resolve,
 } from "https://deno.land/std@0.127.0/path/mod.ts";
 
+export { DateTime, Interval } from "https://cdn.skypack.dev/luxon?dts";
+
 export { plural, singular } from "https://deno.land/x/deno_plural/mod.ts";

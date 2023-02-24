@@ -1,28 +1,39 @@
-import {
-  ArgTypes,
-  buildTask,
-  lineWriter,
-  red,
-  resolve,
-  ringBell,
-} from "../deps.ts";
+import { ArgTypes, buildTask, lineWriter, red, ringBell } from "../deps.ts";
 import { thingOnCadence } from "../util/bell.ts";
+import { Config, loadConfigFromOptions } from "../util/config.ts";
 import {
   durationStringToMilliseconds,
   millisecondsToString,
 } from "../util/time_string_parsing.ts";
 import { writeToJournalFile } from "../journalFile.ts";
 
-interface ListOpts {
+interface TimerOpts {
   duration: string;
   focus: string;
   alarm: boolean;
   journalDir: string;
+  journalFile: string;
+  journalFormat: string;
+  journalTemplateFile: string;
+}
+
+interface ConfigurableTimerOpts extends TimerOpts {
+  config: string;
 }
 
 async function timer(
-  { duration = "25m", focus, alarm = true, journalDir }: ListOpts,
+  options: ConfigurableTimerOpts,
 ): Promise<void> {
+  const config = await loadConfigFromOptions(options);
+
+  const {
+    duration,
+    focus,
+    alarm,
+  } = config;
+
+  console.log("[CONFIG]", config);
+
   const durationInMilliseconds = durationStringToMilliseconds(duration);
 
   const startingTime = new Date();
@@ -40,13 +51,12 @@ focus:
 
 ${focus}
 `;
-
   console.log(outputText);
 
   Deno.addSignalListener("SIGINT", async () => {
-    if (journalDir) {
+    if (config.journalingEnabled) {
       await recordSessionEnd({
-        journalDir,
+        config,
         focus,
         alarm,
         startingTime,
@@ -62,7 +72,8 @@ ${focus}
   await lineWriter(async (writer) => {
     for await (const entry of bar.eachDisplayWindow()) {
       if (entry.isOvertime()) {
-        await conditionallyRingBell();
+        conditionallyRingBell();
+
         await writer(
           `${entry.formattedTimeRemaining()} goal: ${focus} (${
             red(`overtime: ${entry.formattedOvertime()}`)
@@ -74,9 +85,9 @@ ${focus}
     }
   });
 
-  if (journalDir) {
+  if (config.journalingEnabled) {
     await recordSessionEnd({
-      journalDir,
+      config,
       focus,
       alarm,
       startingTime,
@@ -86,7 +97,7 @@ ${focus}
 }
 
 interface EndSessionOptions {
-  journalDir: string;
+  config: Config;
   focus: string;
   alarm: boolean;
   startingTime: Date;
@@ -94,23 +105,17 @@ interface EndSessionOptions {
 }
 
 async function recordSessionEnd(
-  { journalDir, focus, alarm, startingTime, endingTimePlanned }:
-    EndSessionOptions,
+  { config, focus, alarm, startingTime, endingTimePlanned }: EndSessionOptions,
 ) {
   const endingTimeActual = new Date();
-  const resolvedJournalDir = resolve(Deno.cwd(), journalDir);
 
-  await writeToJournalFile(resolvedJournalDir, {
+  await writeToJournalFile(config, {
     goal: focus,
     alarm,
     startingTime,
     endingTimePlanned,
     endingTimeActual,
   });
-}
-
-interface AsyncCBProc {
-  (): Promise<void>;
 }
 
 function sleepUntil(timeFuture: Date) {
@@ -231,8 +236,39 @@ const task = buildTask(timer, (t) => {
     o.type = ArgTypes.Boolean;
   });
 
-  t.addOption("journalDir", (o) => {
-    o.desc = "Write results to a journal file in this dir";
+  t.addOption("journalDir", (a) => {
+    a.desc = "Record the session by creating files in this directory";
+    a.required = false;
+
+    a.type = ArgTypes.String;
+  });
+
+  t.addOption("journalFile", (a) => {
+    a.desc =
+      "A templated file path to create the journal file in. Uses luxon tokens to format the path.  New directories will be created if they don't exist.  Defaults to `yyyyMMddHHmmss'.json'`";
+    a.required = false;
+
+    a.type = ArgTypes.String;
+  });
+
+  t.addOption("journalFormat", (a) => {
+    a.desc =
+      "The format of the journal file.  Allowed options are `json` or `template`.  Defaults to `json`";
+    a.required = false;
+
+    a.type = ArgTypes.String;
+  });
+
+  t.addOption("journalTemplateFile", (a) => {
+    a.desc =
+      "A file path to a template file to use when creating the journal file.  This is not required if `journalFormat` is set to `json`";
+    a.required = false;
+
+    a.type = ArgTypes.String;
+  });
+
+  t.addOption("config", (o) => {
+    o.desc = "Config for the timer";
 
     o.required = false;
     o.type = ArgTypes.String;
@@ -241,3 +277,4 @@ const task = buildTask(timer, (t) => {
 
 export default timer;
 export { task };
+export type { ConfigurableTimerOpts, TimerOpts };

@@ -1,16 +1,5 @@
-interface ConfigOptions {
-  journalDir?: string;
-  journalFile?: string;
-  journalFormat?: string;
-  journalTemplateFile?: string;
-}
+import type { ConfigurableTimerOpts, TimerOpts } from "../cli/timer.ts";
 
-// ConfigLoadError
-//
-// ConfigLoadError is an error that is thrown when the config file is not
-// found, or is not a valid JSON file, or does not contain the required
-// configuration.
-//
 class ConfigLoadError extends Error {
   constructor(message: string) {
     super(message);
@@ -19,23 +8,39 @@ class ConfigLoadError extends Error {
 }
 
 class Config {
-  journalDir: string;
-  journalFile: string;
+  duration: string;
+  focus: string;
+  alarm: boolean;
+  journalDir?: string;
+  journalFile?: string;
   journalFormat: string;
-  journalTemplateFile: string;
+  journalTemplateFile?: string;
   journalingEnabled: boolean;
   templatingEnabled: boolean;
 
-  constructor(options: ConfigOptions) {
-    this.journalDir = options.journalDir || "";
-    this.journalFile = options.journalFile || "";
-    this.journalTemplateFile = options.journalTemplateFile || "json"; // default to json
-    this.journalFormat = options.journalFormat || "";
+  constructor(options: Partial<TimerOpts>) {
+    this.duration = options.duration || "25m";
+    this.focus = options.focus || "";
+    this.alarm = options.alarm ? Boolean(options.alarm) : true;
+    this.journalDir = options.journalDir || undefined;
+    this.journalFile = options.journalFile || "yyyyMMddHHmmss'.json'";
+    this.journalTemplateFile = options.journalTemplateFile || undefined;
+    this.journalFormat = options.journalFormat || "json"; // default to json
 
     // ensure format valid
     if (this.journalFormat !== "json" && this.journalFormat !== "template") {
-      throw new Error(
+      throw new ConfigLoadError(
         `Invalid journal format: ${this.journalFormat}. Must be either 'json' or 'template'.`,
+      );
+    }
+
+    // ensure template file is present if format is template
+    if (
+      this.journalFormat === "template" &&
+      !this.journalTemplateFile
+    ) {
+      throw new ConfigLoadError(
+        "journalTemplateFile must be provided if journalFormat is set to 'template'",
       );
     }
 
@@ -47,44 +52,18 @@ class Config {
   }
 }
 
-// loadConfigFromFile accepts a deno file path, builds a config from
-// configuration specified in the file, and returns a new Config object.
-//
-// The file must be a valid JSON file, and must contain the following
-// configuration:
-// {
-//   "journalDir": "/path/to/journal/directory",
-//   "journalFile": "journal-file-name",
-//   "journalFormat": "json",
-//   "journalTemplateFile": "template-file-name"
-// }
-//
-// The journalFormat must be either 'json' or 'template'.
-// The journalTemplateFile is optional, and only required if journalFormat
-// is set to 'template'.  If journalFormat is set to 'template', then
-// journalTemplateFile must be specified.
-//
-// ### Json Formatted output
-//
-// If journalFormat is set to 'json', then the journalFile will write a
-// jsonified version of the `JournalEntry` to the file.
-//
-// ### Templating
-//
-// The journalTemplateFile is a eta template file.  The template accepts the
-// `JournalEntry` object as a parameter.  It's not the responsibility of the loader to validate the templates structure.
-//
-// Conditions to handle:
-// 1. If the file does not exist, throw a ConfigLoadError.
-// 2. If the file exists, but is not a valid JSON file, throw a ConfigLoadError.
-// 3. If the file exists, and is a valid JSON file, but does not contain
-//    the required configuration, throw a ConfigLoadError.
-//
-async function loadConfigFromFile(filePath: string): Promise<Config> {
+async function loadConfigFromOptions({
+  config: configPath,
+  ...cliRequestedOptions
+}: Partial<ConfigurableTimerOpts>): Promise<Config> {
   let fileContents: string;
 
+  if (!configPath) {
+    return new Config(cliRequestedOptions);
+  }
+
   try {
-    fileContents = await Deno.readTextFile(filePath);
+    fileContents = await Deno.readTextFile(configPath);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       throw new ConfigLoadError("config file does not exist");
@@ -92,25 +71,27 @@ async function loadConfigFromFile(filePath: string): Promise<Config> {
     throw error;
   }
 
-  let configOptions: ConfigOptions;
+  let configDefaultOptions: Partial<TimerOpts>;
 
   try {
-    configOptions = JSON.parse(fileContents) as ConfigOptions;
+    configDefaultOptions = JSON.parse(fileContents) as Partial<TimerOpts>;
   } catch (error) {
     console.log({ error });
     throw new ConfigLoadError("config file is not a valid json file");
   }
 
-  let config: Config;
+  // remove any undefined values from the cli options
+  const cliRequestedOptionsWithoutUndefinedValues = Object.fromEntries(
+    Object.entries(cliRequestedOptions).filter(([_, v]) => v != null),
+  );
 
-  //try to load the config into a Config object
-  try {
-    config = new Config(configOptions);
-  } catch (error) {
-    throw new ConfigLoadError("config file is missing required configuration");
-  }
+  // merge the config file options with the cli options. cli options take precedence
+  const configOptions = {
+    ...configDefaultOptions,
+    ...cliRequestedOptionsWithoutUndefinedValues,
+  };
 
-  return config;
+  return new Config(configOptions);
 }
 
-export { Config, ConfigLoadError, loadConfigFromFile };
+export { Config, ConfigLoadError, loadConfigFromOptions };

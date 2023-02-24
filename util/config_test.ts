@@ -6,82 +6,87 @@ the test should model the following cases:
 - the config file exists, but is not a valid json file
 - the config file exists, and is a valid json file, but does not contain the required configuration (cases for each of the config options)
 - the config file exists, and is a valid json file, and contains the required configuration
+- cli requested options override the config file options
+
+Existing fixtures:
+- test_data/invalid_json.json
+- test_data/valid_config.json
+
+Expected error messages:
+- ConfigLoadError, config file does not exist
+- ConfigLoadError, config file is not a valid json file
+- ConfigLoadError, config file is missing required configuration
 */
-import { assertEquals, assertThrowsAsync } from "../test_deps.ts";
-import {
-  fromFileUrl,
-  normalize,
-  relative,
-  resolve,
-} from "https://deno.land/std/path/mod.ts";
-import { ConfigLoadError, loadConfigFromFile } from "./config.ts";
+import { assertEquals, assertThrows, assertThrowsAsync } from "../test_deps.ts";
+import { fromFileUrl, resolve } from "https://deno.land/std/path/mod.ts";
+import { Config, ConfigLoadError, loadConfigFromOptions } from "./config.ts";
 
 const { test } = Deno;
 
 test("config file does not exist", async () => {
+  const configPath = resolve(
+    fromFileUrl(import.meta.url),
+    "../test_data/does_not_exist.json",
+  );
+
   await assertThrowsAsync(
     async () => {
-      await loadConfigFromFile("made-up-config-path.json");
+      await loadConfigFromOptions({ config: configPath });
     },
     ConfigLoadError,
     "config file does not exist",
   );
 });
 
-test("config file exists, but is not a valid json file", async () => {
+test("config file is not a valid json file", async () => {
+  const configPath = resolve(
+    fromFileUrl(import.meta.url),
+    "../test_data/invalid_json.json",
+  );
+
   await assertThrowsAsync(
     async () => {
-      await loadConfigFromFile(
-        resolve(
-          fromFileUrl(import.meta.url),
-          "..",
-          "./test_data/invalid_json.json",
-        ),
-      );
+      await loadConfigFromOptions({ config: configPath });
     },
     ConfigLoadError,
     "config file is not a valid json file",
   );
 });
 
-test("config file exists, and is a valid json file, but does not contain the required configuration", async () => {
-  await assertThrowsAsync(
-    async () => {
-      await loadConfigFromFile(
-        resolve(
-          fromFileUrl(import.meta.url),
-          "..",
-          "./test_data/invalid_config.json",
-        ),
-      );
+test("config.jounalFormat = template missing other required options", () => {
+  assertThrows(
+    () => {
+      new Config({ journalFormat: "template" });
     },
     ConfigLoadError,
-    "config file is missing required configuration",
   );
 });
 
-test("config file exists, and is a valid json file, and contains the required configuration", async () => {
-  const config = await loadConfigFromFile(
-    resolve(
-      fromFileUrl(import.meta.url),
-      "..",
-      "./test_data/valid_config.json",
-    ),
+test("cli requested options override the config file options", async () => {
+  const configPath = resolve(
+    fromFileUrl(import.meta.url),
+    "../test_data/config_with_template_option_set.json",
   );
 
-  // given config
+  // cli requested options override the config file options
+  const config = await loadConfigFromOptions({
+    config: configPath,
+    journalFormat: "json",
+  });
 
-  // {
-  //   "journalDir": "/path/to/journal/directory",
-  //   "journalFile": "journal-file-name",
-  //   "journalFormat": "json",
-  //   "journalTemplateFile": "template-file-name"
-  // }
+  assertEquals(config.journalFormat, "json");
+});
+
+test("omiting nulls from cli options", async () => {
+  const configPath = resolve(
+    fromFileUrl(import.meta.url),
+    "../test_data/valid_config.json",
+  );
+
+  const config = await loadConfigFromOptions({
+    config: configPath,
+    journalDir: undefined,
+  });
 
   assertEquals(config.journalDir, "/path/to/journal/directory");
-  assertEquals(config.journalFile, "journal-file-name");
-  assertEquals(config.journalFormat, "json");
-  assertEquals(config.journalTemplateFile, "template-file-name");
-  assertEquals(config.journalingEnabled, true);
-  assertEquals(config.templatingEnabled, true);
 });
