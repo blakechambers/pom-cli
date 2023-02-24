@@ -1,0 +1,6 @@
+{
+  "journalDir": "/path/to/journal/directory",
+  "journalFile": "journal-file-name",
+  "journalFormat": "json",
+  "journalTemplateFile": "template-file-name"
+}
