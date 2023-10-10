@@ -1,5 +1,5 @@
 import { DateTime, ensureFile, Interval, resolve } from "../deps.ts";
-import { Config } from "../util/config.ts";
+import { Config } from "./config.ts";
 
 import * as eta from "https://cdn.skypack.dev/eta?dts";
 

@@ -1,4 +1,4 @@
-import type { ConfigurableTimerOpts, TimerOpts } from "./timer.ts";
+import type { ConfigurableTimerOpts, TimerOpts } from "../cli/timer.ts";
 
 class ConfigLoadError extends Error {
   constructor(message: string) {

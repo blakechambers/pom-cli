@@ -1,12 +1,12 @@
 import { ArgTypes, buildTask, lineWriter, red, ringBell } from "../deps.ts";
 import { thingOnCadence } from "../src/bell.ts";
-import { Config, loadConfigFromOptions } from "./config.ts";
+import { Config, loadConfigFromOptions } from "../src/config.ts";
 import {
   durationStringToMilliseconds,
   millisecondsToString,
 } from "../src/time_string_parsing.ts";
-import { writeToJournalFile } from "../src/journalFile.ts";
-import { sleepUntil } from "../src/sleepUntil.ts";
+import { writeToJournalFile } from "../src/journal_file.ts";
+import { sleepUntil } from "../src/sleep_until.ts";
 
 interface TimerOpts {
   duration: string;
