@@ -1,6 +1,6 @@
 import { ArgTypes, buildTask, lineWriter, red, ringBell } from "../deps.ts";
 import { thingOnCadence } from "../src/bell.ts";
-import { Config, loadConfigFromOptions } from "../src/config.ts";
+import { Config, loadConfigFromOptions } from "./config.ts";
 import {
   durationStringToMilliseconds,
   millisecondsToString,

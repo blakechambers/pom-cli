@@ -17,17 +17,18 @@ Expected error messages:
 - ConfigLoadError, config file is not a valid json file
 - ConfigLoadError, config file is missing required configuration
 */
-import { assertEquals, assertThrows, assertThrowsAsync } from "../test_deps.ts";
-import { fromFileUrl, resolve } from "https://deno.land/std/path/mod.ts";
+import {
+  assertEquals,
+  assertThrows,
+  assertThrowsAsync,
+  testDataPath,
+} from "../test_deps.ts";
 import { Config, ConfigLoadError, loadConfigFromOptions } from "./config.ts";
 
 const { test } = Deno;
 
 test("config file does not exist", async () => {
-  const configPath = resolve(
-    fromFileUrl(import.meta.url),
-    "../test_data/does_not_exist.json",
-  );
+  const configPath = testDataPath("does_not_exist.json");
 
   await assertThrowsAsync(
     async () => {
@@ -39,10 +40,7 @@ test("config file does not exist", async () => {
 });
 
 test("config file is not a valid json file", async () => {
-  const configPath = resolve(
-    fromFileUrl(import.meta.url),
-    "../test_data/invalid_json.json",
-  );
+  const configPath = testDataPath("invalid_json.json");
 
   await assertThrowsAsync(
     async () => {
@@ -63,10 +61,7 @@ test("config.jounalFormat = template missing other required options", () => {
 });
 
 test("cli requested options override the config file options", async () => {
-  const configPath = resolve(
-    fromFileUrl(import.meta.url),
-    "../test_data/config_with_template_option_set.json",
-  );
+  const configPath = testDataPath("config_with_template_option_set.json");
 
   // cli requested options override the config file options
   const config = await loadConfigFromOptions({
@@ -78,10 +73,7 @@ test("cli requested options override the config file options", async () => {
 });
 
 test("omiting nulls from cli options", async () => {
-  const configPath = resolve(
-    fromFileUrl(import.meta.url),
-    "../test_data/valid_config.json",
-  );
+  const configPath = testDataPath("valid_config.json");
 
   const config = await loadConfigFromOptions({
     config: configPath,
