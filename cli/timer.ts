@@ -1,11 +1,12 @@
 import { ArgTypes, buildTask, lineWriter, red, ringBell } from "../deps.ts";
-import { thingOnCadence } from "../util/bell.ts";
-import { Config, loadConfigFromOptions } from "../util/config.ts";
+import { thingOnCadence } from "../src/bell.ts";
+import { Config, loadConfigFromOptions } from "../src/config.ts";
 import {
   durationStringToMilliseconds,
   millisecondsToString,
-} from "../util/time_string_parsing.ts";
-import { writeToJournalFile } from "../journalFile.ts";
+} from "../src/time_string_parsing.ts";
+import { writeToJournalFile } from "../src/journalFile.ts";
+import { sleepUntil } from "../src/sleepUntil.ts";
 
 interface TimerOpts {
   duration: string;
@@ -70,7 +71,9 @@ ${focus}
   await lineWriter(async (writer) => {
     for await (const entry of bar.eachDisplayWindow()) {
       if (entry.isOvertime()) {
-        conditionallyRingBell();
+        if (alarm) {
+          conditionallyRingBell();
+        }
 
         await writer(
           `${entry.formattedTimeRemaining()} goal: ${focus} (${
@@ -113,14 +116,6 @@ async function recordSessionEnd(
     startingTime,
     endingTimePlanned,
     endingTimeActual,
-  });
-}
-
-function sleepUntil(timeFuture: Date) {
-  return new Promise((resolve) => {
-    const timeNow = new Date();
-
-    setTimeout(resolve, timeFuture.getTime() - timeNow.getTime());
   });
 }
 
@@ -212,64 +207,48 @@ class ProgressBar {
 const task = buildTask(timer, (t) => {
   t.desc = "start a simple timer";
 
-  t.addOption("duration", (o) => {
+  t.addOption("duration", ArgTypes.String, (o) => {
     o.desc =
       "How long do you want the timer to run for (in minutes). Passing 30s will translate to 30 seconds. Defaults to 25 minutes.";
     o.required = false;
-
-    o.type = ArgTypes.String;
   });
 
-  t.addOption("focus", (a) => {
+  t.addOption("focus", ArgTypes.String, (a) => {
     a.desc = "What are you focusing on";
     a.required = false;
-
-    a.type = ArgTypes.String;
   });
 
-  t.addOption("alarm", (o) => {
+  t.addOption("alarm", ArgTypes.Boolean, (o) => {
     o.desc = "will the timer ring an alarm when complete. Defaults to 'true'";
     o.required = false;
-
-    o.type = ArgTypes.Boolean;
   });
 
-  t.addOption("journalDir", (a) => {
+  t.addOption("journalDir", ArgTypes.String, (a) => {
     a.desc = "Record the session by creating files in this directory";
     a.required = false;
-
-    a.type = ArgTypes.String;
   });
 
-  t.addOption("journalFile", (a) => {
+  t.addOption("journalFile", ArgTypes.String, (a) => {
     a.desc =
       "A templated file path to create the journal file in. Uses luxon tokens to format the path.  New directories will be created if they don't exist.  Defaults to `yyyyMMddHHmmss'.json'`";
     a.required = false;
-
-    a.type = ArgTypes.String;
   });
 
-  t.addOption("journalFormat", (a) => {
+  t.addOption("journalFormat", ArgTypes.String, (a) => {
     a.desc =
       "The format of the journal file.  Allowed options are `json` or `template`.  Defaults to `json`";
     a.required = false;
-
-    a.type = ArgTypes.String;
   });
 
-  t.addOption("journalTemplateFile", (a) => {
+  t.addOption("journalTemplateFile", ArgTypes.String, (a) => {
     a.desc =
       "A file path to a template file to use when creating the journal file.  This is not required if `journalFormat` is set to `json`";
     a.required = false;
-
-    a.type = ArgTypes.String;
   });
 
-  t.addOption("config", (o) => {
+  t.addOption("config", ArgTypes.String, (o) => {
     o.desc = "Config for the timer";
-
     o.required = false;
-    o.type = ArgTypes.String;
   });
 });
 
