@@ -36,7 +36,7 @@ async function renderTemplateJournalFile(
   ) throw new Error("Journaling is not enabled");
 
   // read template file
-  const myTemplate = await Deno.readTextFile(config.journalTemplateFile);
+  // const myTemplate = await Deno.readTextFile(config.journalTemplateFile);
 
   // calculate interval
   const interval = Interval.fromDateTimes(
@@ -44,10 +44,15 @@ async function renderTemplateJournalFile(
     DateTime.fromJSDate(data.endingTimeActual),
   );
 
-  const eta = new Eta({ autoTrim: false, views: undefined });
+  // get views directory by splitting the template file path
+  const templateFilePath = config.journalTemplateFile.split("/");
+  const templateFileName = templateFilePath.pop() || "";
+  const templateDir = templateFilePath.join("/");
+
+  const eta = new Eta({ autoTrim: false, views: templateDir });
 
   // render template
-  const result = eta.render(myTemplate, {
+  const result = eta.render(templateFileName, {
     ...data,
     interval,
     floor: Math.floor,
