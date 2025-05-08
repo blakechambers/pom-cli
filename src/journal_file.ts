@@ -44,7 +44,7 @@ async function renderTemplateJournalFile(
     DateTime.fromJSDate(data.endingTimeActual),
   );
 
-  const eta = new Eta({ autoTrim: false });
+  const eta = new Eta({ autoTrim: false, views: undefined });
 
   // render template
   const result = eta.render(myTemplate, {
