@@ -1,5 +1,4 @@
-export { ArgTypes, buildTask, main, Task } from "../hort-cli/mod.ts";
-// } from "https://deno.land/x/hort_cli@v0.1.0-alpha.4/mod.ts";
+export { ArgTypes, buildTask, main, Task } from "https://raw.githubusercontent.com/blakechambers/hort-cli/refs/heads/main/mod.ts";
 
 export { ringBell } from "./src/bell.ts";
 export { LineWriter } from "./src/line_writer.ts";
