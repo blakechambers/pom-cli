@@ -1,28 +1,39 @@
-import {
-  ArgTypes,
-  buildTask,
-  lineWriter,
-  red,
-  resolve,
-  ringBell,
-} from "../deps.ts";
-import { thingOnCadence } from "../util/bell.ts";
+import { ArgTypes, buildTask, red, ringBell } from "../deps.ts";
+import { LineWriter } from "../src/line_writer.ts";
+import { thingOnCadence } from "../src/bell.ts";
+import { Config, loadConfigFromOptions } from "../src/config.ts";
 import {
   durationStringToMilliseconds,
   millisecondsToString,
-} from "../util/time_string_parsing.ts";
-import { writeToJournalFile } from "../journalFile.ts";
+} from "../src/time_string_parsing.ts";
+import { writeToJournalFile } from "../src/journal_file.ts";
+import { sleepUntil } from "../src/sleep_until.ts";
 
-interface ListOpts {
+interface TimerOpts {
   duration: string;
   focus: string;
   alarm: boolean;
   journalDir: string;
+  journalFile: string;
+  journalFormat: string;
+  journalTemplateFile: string;
+}
+
+interface ConfigurableTimerOpts extends TimerOpts {
+  config: string;
 }
 
 async function timer(
-  { duration = "25m", focus, alarm = true, journalDir }: ListOpts,
+  options: ConfigurableTimerOpts,
 ): Promise<void> {
+  const config = await loadConfigFromOptions(options);
+
+  const {
+    duration,
+    focus,
+    alarm,
+  } = config;
+
   const durationInMilliseconds = durationStringToMilliseconds(duration);
 
   const startingTime = new Date();
@@ -40,13 +51,12 @@ focus:
 
 ${focus}
 `;
-
   console.log(outputText);
 
   Deno.addSignalListener("SIGINT", async () => {
-    if (journalDir) {
+    if (config.journalingEnabled) {
       await recordSessionEnd({
-        journalDir,
+        config,
         focus,
         alarm,
         startingTime,
@@ -59,24 +69,29 @@ ${focus}
 
   const conditionallyRingBell = thingOnCadence(endingTime, ringBell);
 
-  await lineWriter(async (writer) => {
-    for await (const entry of bar.eachDisplayWindow()) {
-      if (entry.isOvertime()) {
-        await conditionallyRingBell();
-        await writer(
-          `${entry.formattedTimeRemaining()} goal: ${focus} (${
-            red(`overtime: ${entry.formattedOvertime()}`)
-          })`,
-        );
-      } else {
-        await writer(`${entry.formattedTimeRemaining()} goal: ${focus}`);
-      }
-    }
-  });
+  const { write } = new LineWriter();
 
-  if (journalDir) {
+  for await (const entry of bar.eachDisplayWindow()) {
+    if (entry.isOvertime()) {
+      if (alarm) {
+        conditionallyRingBell();
+      }
+
+      await write(
+        `${entry.formattedTimeRemaining()} goal: ${focus} (${
+          red(`overtime: ${entry.formattedOvertime()}`)
+        })`,
+      );
+    } else {
+      await write(`${entry.formattedTimeRemaining()} goal: ${focus}`);
+    }
+  }
+
+  write("\n");
+
+  if (config.journalingEnabled) {
     await recordSessionEnd({
-      journalDir,
+      config,
       focus,
       alarm,
       startingTime,
@@ -86,7 +101,7 @@ ${focus}
 }
 
 interface EndSessionOptions {
-  journalDir: string;
+  config: Config;
   focus: string;
   alarm: boolean;
   startingTime: Date;
@@ -94,30 +109,16 @@ interface EndSessionOptions {
 }
 
 async function recordSessionEnd(
-  { journalDir, focus, alarm, startingTime, endingTimePlanned }:
-    EndSessionOptions,
+  { config, focus, alarm, startingTime, endingTimePlanned }: EndSessionOptions,
 ) {
   const endingTimeActual = new Date();
-  const resolvedJournalDir = resolve(Deno.cwd(), journalDir);
 
-  await writeToJournalFile(resolvedJournalDir, {
+  await writeToJournalFile(config, {
     goal: focus,
     alarm,
     startingTime,
     endingTimePlanned,
     endingTimeActual,
-  });
-}
-
-interface AsyncCBProc {
-  (): Promise<void>;
-}
-
-function sleepUntil(timeFuture: Date) {
-  return new Promise((resolve) => {
-    const timeNow = new Date();
-
-    setTimeout(resolve, timeFuture.getTime() - timeNow.getTime());
   });
 }
 
@@ -209,35 +210,51 @@ class ProgressBar {
 const task = buildTask(timer, (t) => {
   t.desc = "start a simple timer";
 
-  t.addOption("duration", (o) => {
+  t.addOption("duration", ArgTypes.String, (o) => {
     o.desc =
       "How long do you want the timer to run for (in minutes). Passing 30s will translate to 30 seconds. Defaults to 25 minutes.";
     o.required = false;
-
-    o.type = ArgTypes.String;
   });
 
-  t.addOption("focus", (a) => {
+  t.addOption("focus", ArgTypes.String, (a) => {
     a.desc = "What are you focusing on";
     a.required = false;
-
-    a.type = ArgTypes.String;
   });
 
-  t.addOption("alarm", (o) => {
+  t.addOption("alarm", ArgTypes.Boolean, (o) => {
     o.desc = "will the timer ring an alarm when complete. Defaults to 'true'";
     o.required = false;
-
-    o.type = ArgTypes.Boolean;
   });
 
-  t.addOption("journalDir", (o) => {
-    o.desc = "Write results to a journal file in this dir";
+  t.addOption("journalDir", ArgTypes.String, (a) => {
+    a.desc = "Record the session by creating files in this directory";
+    a.required = false;
+  });
 
+  t.addOption("journalFile", ArgTypes.String, (a) => {
+    a.desc =
+      "A templated file path to create the journal file in. Uses luxon tokens to format the path.  New directories will be created if they don't exist.  Defaults to `yyyyMMddHHmmss'.json'`";
+    a.required = false;
+  });
+
+  t.addOption("journalFormat", ArgTypes.String, (a) => {
+    a.desc =
+      "The format of the journal file.  Allowed options are `json` or `template`.  Defaults to `json`";
+    a.required = false;
+  });
+
+  t.addOption("journalTemplateFile", ArgTypes.String, (a) => {
+    a.desc =
+      "A file path to a template file to use when creating the journal file.  This is not required if `journalFormat` is set to `json`";
+    a.required = false;
+  });
+
+  t.addOption("config", ArgTypes.String, (o) => {
+    o.desc = "Config for the timer";
     o.required = false;
-    o.type = ArgTypes.String;
   });
 });
 
 export default timer;
 export { task };
+export type { ConfigurableTimerOpts, TimerOpts };

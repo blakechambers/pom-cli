@@ -7,6 +7,26 @@ cd ~/projects/process
 deno run --allow-read=/Users/blakechambers/projects/deno/pom-cli,. --unstable ~/projects/deno/pom-cli/cli.ts help
 ```
 
+### Using a config.json
+
+To simplify configuration, you can use `--config` to set default parameters for
+the timer. Assuming you have a file in `~/.pom-cli.json, containing:
+
+```json
+{
+  "alarm": true,
+  "journalDir": "~/Desktop",
+  "journalFile": "yyyyMMddHHmmss'.md'",
+  "journalFormat": "template",
+  "journalTemplateFile": "~/Desktop/template.yml"
+}
+```
+
+These options will set defaults for the values passed to the timer.
+
+The result of the timer usage will result in "journals" of the timer being
+recorded.
+
 Goal:
 
 A light weight time and focus management tool.
