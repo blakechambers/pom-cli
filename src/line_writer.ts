@@ -2,31 +2,25 @@ interface lineWriterConfig {
   (text: string): Promise<void>;
 }
 
-async function lineWriter(cb: (w: lineWriterConfig) => Promise<void>) {
-  const store = { lastLine: "" };
+function bufferToLength(text: string, i: number): string {
+  const buffer = text.length < i ? " ".repeat(i - text.length) : "";
 
-  async function writer(text: string): Promise<void> {
-    let whitespaceOverBuffer: string;
-
-    if (text.length < store.lastLine.length) {
-      whitespaceOverBuffer = " ".repeat(store.lastLine.length - text.length);
-    } else {
-      whitespaceOverBuffer = "";
-    }
-
-    await Deno.write(
-      Deno.stdout.rid,
-      new TextEncoder().encode(
-        `\r${text}${whitespaceOverBuffer}`,
-      ),
-    );
-
-    store.lastLine = text;
-  }
-
-  await cb(writer);
-  writer("\n");
+  return text + buffer;
 }
 
-export { lineWriter };
+class LineWriter {
+  private lastLine = "";
+
+  write = async (text: string): Promise<void> => {
+    const encoder = new TextEncoder();
+    const bytes = encoder.encode(
+      `\r${bufferToLength(text, this.lastLine.length)}`,
+    );
+    // write to stdout in Deno 2
+    await Deno.stdout.write(bytes); // :contentReference[oaicite:0]{index=0}
+    this.lastLine = text;
+  };
+}
+
+export { LineWriter };
 export type { lineWriterConfig };

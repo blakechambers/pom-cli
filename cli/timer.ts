@@ -1,4 +1,5 @@
-import { ArgTypes, buildTask, lineWriter, red, ringBell } from "../deps.ts";
+import { ArgTypes, buildTask, red, ringBell } from "../deps.ts";
+import { LineWriter } from "../src/line_writer.ts";
 import { thingOnCadence } from "../src/bell.ts";
 import { Config, loadConfigFromOptions } from "../src/config.ts";
 import {
@@ -68,23 +69,25 @@ ${focus}
 
   const conditionallyRingBell = thingOnCadence(endingTime, ringBell);
 
-  await lineWriter(async (writer) => {
-    for await (const entry of bar.eachDisplayWindow()) {
-      if (entry.isOvertime()) {
-        if (alarm) {
-          conditionallyRingBell();
-        }
+  const { write } = new LineWriter();
 
-        await writer(
-          `${entry.formattedTimeRemaining()} goal: ${focus} (${
-            red(`overtime: ${entry.formattedOvertime()}`)
-          })`,
-        );
-      } else {
-        await writer(`${entry.formattedTimeRemaining()} goal: ${focus}`);
+  for await (const entry of bar.eachDisplayWindow()) {
+    if (entry.isOvertime()) {
+      if (alarm) {
+        conditionallyRingBell();
       }
+
+      await write(
+        `${entry.formattedTimeRemaining()} goal: ${focus} (${
+          red(`overtime: ${entry.formattedOvertime()}`)
+        })`,
+      );
+    } else {
+      await write(`${entry.formattedTimeRemaining()} goal: ${focus}`);
     }
-  });
+  }
+
+  write("\n");
 
   if (config.journalingEnabled) {
     await recordSessionEnd({
