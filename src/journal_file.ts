@@ -1,7 +1,7 @@
 import { DateTime, ensureFile, Interval, resolve } from "../deps.ts";
 import { Config } from "./config.ts";
 
-import * as eta from "https://cdn.skypack.dev/eta?dts";
+import { Eta } from "jsr:@eta-dev/eta";
 
 interface JournalEntry {
   goal: string;
@@ -44,13 +44,15 @@ async function renderTemplateJournalFile(
     DateTime.fromJSDate(data.endingTimeActual),
   );
 
+  const eta = new Eta({ autoTrim: false });
+
   // render template
   const result = eta.render(myTemplate, {
     ...data,
     interval,
     floor: Math.floor,
     formatDateUsingLuxonDateTimeTokens,
-  }, { autoTrim: false });
+  });
 
   return await Deno.writeTextFile(journalPath, result);
 }
